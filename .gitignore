@@ -1,0 +1,9 @@
+data/
+fintech_track_data/
+submissions/
+.venv/
+*.csv
+*.parquet
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store

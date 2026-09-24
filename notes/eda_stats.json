@@ -1,0 +1,126 @@
+{
+  "n_signals_train": 14000,
+  "n_signals_test": 6000,
+  "n_tx_train": 6987663,
+  "n_tx_test": 3027575,
+  "missing_values_total": 0,
+  "id_overlap_train_test": 0,
+  "escalation_rate": 0.1718,
+  "n_escalated": 2405,
+  "date_range_train": [
+    "2025-01-01",
+    "2026-12-31"
+  ],
+  "date_range_test": [
+    "2025-01-01",
+    "2026-12-31"
+  ],
+  "escalation_rate_by_quarter": {
+    "2025Q1": 0.177,
+    "2025Q2": 0.169,
+    "2025Q3": 0.158,
+    "2025Q4": 0.167,
+    "2026Q1": 0.175,
+    "2026Q2": 0.175,
+    "2026Q3": 0.176,
+    "2026Q4": 0.189
+  },
+  "tx_after_signal_day": 0,
+  "tx_on_signal_day_after_midnight": 840,
+  "signals_with_tx_on_signal_day": 21,
+  "tx_exactly_at_signal_midnight": 3094,
+  "max_days_before_signal": 180.0,
+  "tx_per_signal": {
+    "mean": 499.1,
+    "std": 299.5,
+    "min": 1.0,
+    "25%": 277.0,
+    "50%": 461.0,
+    "75%": 678.2,
+    "max": 2279.0
+  },
+  "history_days": {
+    "mean": 174.8,
+    "std": 21.2,
+    "min": 0.0,
+    "25%": 178.0,
+    "50%": 179.0,
+    "75%": 179.0,
+    "max": 179.0
+  },
+  "signals_history_lt_30d": 157,
+  "escalation_rate_by_tx_count_quintile": [
+    0.155,
+    0.151,
+    0.175,
+    0.188,
+    0.19
+  ],
+  "tx_in_last_15min_before_signal_midnight": 551899,
+  "share_tx_in_last_15min": 0.079,
+  "signals_with_last_15min_burst": 13848,
+  "last_15min_burst_size_median": 31.0,
+  "share_hour23_overall": 0.1169,
+  "amount_mean_by_class": {
+    "0": -0.123,
+    "1": -0.182
+  },
+  "amount_mean_by_type_direction": {
+    "chiqim": {
+      "bank_otkazmasi": 0.318,
+      "karta": -0.076,
+      "naqd": 0.785,
+      "xalqaro": 2.169
+    },
+    "kirim": {
+      "bank_otkazmasi": 0.077,
+      "karta": -0.537,
+      "naqd": 0.452,
+      "xalqaro": 1.934
+    }
+  },
+  "tx_share_by_type": {
+    "karta": 0.5379,
+    "bank_otkazmasi": 0.3942,
+    "naqd": 0.0633,
+    "xalqaro": 0.0046
+  },
+  "tx_share_incoming": 0.7566,
+  "mean_share_per_alert_by_class": {
+    "karta": {
+      "0": 0.5211,
+      "1": 0.5215
+    },
+    "bank_otkazmasi": {
+      "0": 0.4123,
+      "1": 0.4092
+    },
+    "naqd": {
+      "0": 0.0621,
+      "1": 0.0648
+    },
+    "xalqaro": {
+      "0": 0.0044,
+      "1": 0.0045
+    },
+    "kirim": {
+      "0": 0.7503,
+      "1": 0.7441
+    }
+  },
+  "single_feature_auc": {
+    "share_karta": 0.5016,
+    "share_bank_otkazmasi": 0.5053,
+    "burst_15min_size": 0.5126,
+    "share_kirim": 0.5159,
+    "n_tx_last_7d": 0.516,
+    "n_tx_last_30d": 0.5194,
+    "share_xalqaro": 0.5223,
+    "share_naqd": 0.5239,
+    "n_tx": 0.5306,
+    "amount_sum": 0.5372,
+    "amount_mean": 0.5393,
+    "amount_std": 0.5425,
+    "amount_max": 0.5477
+  }
+}
