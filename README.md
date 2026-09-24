@@ -22,13 +22,18 @@ Put the raw competition files into `data/` (not included in this repository — 
 ## Reproduce
 ```bash
 .venv/bin/python src/eda.py      # Phase 1: charts → site/assets/, stats → notes/eda_stats.json
-.venv/bin/python src/train.py    # features → CV → final model → submissions/team_<TEAM_ID>.csv (validated)
+.venv/bin/python src/train.py    # features → CV → final model → submissions/team_348471A6.csv (validated)
+.venv/bin/python src/train.py --select      # optional: re-run Phase 3 group-wise feature selection
+.venv/bin/python src/phase4.py <step>       # optional: robustness over 5 split seeds, tuning, CatBoost, blend
 ```
+Final model: one LightGBM on 110 features (groups base, A, E, F), CV ROC-AUC 0.6465 ± 0.0160 (split seed 42), 0.6480 mean over 5 split seeds.
 `SEED = 42` everywhere. Feature matrices are cached in `data/cache/`; delete it to rebuild from raw files.
 
 ## Layout
-- `src/features.py` — per-alert features (groups: base, burst, A shape, B rhythm, C change, D transit, E type×direction)
-- `src/train.py` — stratified 5-fold LightGBM CV, group-wise forward selection, submission
+- `src/features.py` — per-alert features (groups: base, burst, A shape, B rhythm, C change, D transit, E type×direction, F shape within type×direction)
+- `src/train.py` — final pipeline: stratified 5-fold LightGBM CV, full-train fit, submission (`--select` = group selection)
+- `src/models.py` — CV helpers (LightGBM, CatBoost, rank average), final parameters
+- `src/phase4.py` — experiments over 5 split seeds: stability, group F, tuning, CatBoost, seed averaging, blend
 - `src/validate_submission.py` — submission format checks
 - `notebooks/eda.ipynb` — EDA notebook
 - `notes/` — EDA findings, experiment log, team cheatsheet

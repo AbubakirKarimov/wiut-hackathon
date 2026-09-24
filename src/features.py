@@ -189,8 +189,30 @@ def combo_features(t):
     return f.join(mean.add_prefix("cmb_amt_mean_"))
 
 
+# ---------- F. Amount distribution within each type × direction ----------
+F_MIN_TX = 5            # per-alert stats need at least this many transactions of the combo
+F_MIN_ALERT_SHARE = 0.5  # combo is used only if >= 50% of train alerts have F_MIN_TX of it (drops xalqaro)
+F_COMBOS = ["bank_otkazmasi_chiqim", "bank_otkazmasi_kirim", "karta_chiqim", "karta_kirim", "naqd_chiqim", "naqd_kirim"]
+
+
+def combo_shape_features(t):
+    combo = t.tranzaksiya_turi + "_" + t.kirim_chiqim
+    x = t[combo.isin(F_COMBOS)].assign(combo=combo)
+    g = x.groupby(["signal_id", "combo"]).miqdor_indeksi
+    st = g.agg(["size", "std", "min", "max"])
+    q = g.quantile([0.1, 0.5, 0.9]).unstack()
+    q.columns = ["q10", "q50", "q90"]
+    d = x.miqdor_indeksi - g.transform("mean")
+    m2, m3 = [(d ** k).groupby([x.signal_id, x.combo]).mean() for k in (2, 3)]
+    st = st.join(q).assign(skew=m3 / m2 ** 1.5)
+    st = st[st["size"] >= F_MIN_TX].drop(columns="size")
+    f = st.unstack("combo")
+    f.columns = [f"cmbF_{stat}_{c}" for stat, c in f.columns]
+    return f
+
+
 GROUP_FUNCS = {"A_shape": None, "B_rhythm": rhythm_features, "C_change": change_features,
-               "D_transit": transit_features, "E_combo": combo_features}
+               "D_transit": transit_features, "E_combo": combo_features, "F_combo_shape": combo_shape_features}
 
 
 def build(split, thr=None, use_cache=True):
