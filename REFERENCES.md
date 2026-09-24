@@ -17,8 +17,8 @@
 
 ## Ideas
 - American Express — Default Prediction, Kaggle competition (2022): aggregating each customer's history into per-customer features. https://www.kaggle.com/competitions/amex-default-prediction
-- Feedzai — public material on machine learning for AML alert triage. https://feedzai.com
-- Dataiku — public material on AML alert prioritisation use cases. https://www.dataiku.com
+- Feedzai — "Anti-Money Laundering Alert Optimization Using Machine Learning with Graphs". https://arxiv.org/abs/2112.07508
+- Dataiku — AML Alerts Triage solution. https://knowledge.dataiku.com/latest/solutions/financial-services/solution-aml-alerts-triage.html
 - AML typologies used for feature ideas (structuring, pass-through/transit, cash & international share) — general domain knowledge as described in FATF typology reports (fatf-gafi.org).
 - Website fonts: Newsreader, Instrument Sans, IBM Plex Mono (Google Fonts, SIL Open Font License).
 - Chart colour palette: validated categorical palette from Claude Code's built-in `dataviz` skill.

@@ -90,7 +90,7 @@
           </table>
         </div>
         <ul>
-          <li>Each transaction has a timestamp, a direction (incoming <span class="num">75.7%</span> / outgoing), a type (card <span class="num">53.8%</span>, bank transfer <span class="num">39.4%</span>, cash <span class="num">6.3%</span>, international <span class="num">0.5%</span>) and a standardised amount index.</li>
+          <li>Each transaction has a timestamp, a direction, a type and a standardised amount index. <strong>As a share of all train transactions</strong>: incoming <span class="num">75.7%</span>; card <span class="num">53.8%</span>, bank transfer <span class="num">39.4%</span>, cash <span class="num">6.3%</span>, international <span class="num">0.5%</span>.</li>
           <li><strong>0 missing values.</strong> Every alert has at least one transaction. No alert appears in both train and test.</li>
           <li>Transactions per alert: min <span class="num">1</span>, median <span class="num">461</span>, max <span class="num">2,279</span>. History length: median <span class="num">179</span> days, so almost every alert comes with a full ~6-month window. Only <span class="num">157</span> alerts have less than 30 days.</li>
           <li><strong>Leakage check:</strong> <span class="num">0</span> transactions after the alert day. <span class="num">840</span> transactions fell later on the alert day, in just <span class="num">21</span> train alerts. We dropped them because their timing relative to the alert is ambiguous.</li>
@@ -113,7 +113,7 @@
         </div>
         <figure>
           <div class="fig"><img src="assets/02_train_test_time_coverage.png" alt="Monthly share of alerts, train and test lines overlapping across 2025–2026" loading="lazy" width="1200" height="540"></div>
-          <figcaption><b>Test is not "the future".</b> Train and test alerts cover the same two years with the same monthly shape. So random (stratified) cross-validation is a fair estimate of the test score, and a time-based split is not needed.<span class="src">Source: notes/eda_findings.md</span></figcaption>
+          <figcaption><b>Test is not "the future".</b> Train and test alerts cover the same two years with the same monthly shape. So random (stratified) cross-validation is a fair estimate of the test score, and a time-based split is not needed.</figcaption>
         </figure>
       </section>
 
@@ -145,7 +145,7 @@
         <div class="grid-2">
           <figure>
             <div class="fig"><img src="assets/10_type_direction_mix_by_class.png" alt="Five small bar pairs comparing transaction type and direction shares between classes; nearly identical" loading="lazy" width="1650" height="510"></div>
-            <figcaption><b>Same mix.</b> Card 52.1% vs 52.1%, bank transfer 41.2% vs 40.9%, cash 6.2% vs 6.5%, incoming 75.0% vs 74.4% (dismissed vs escalated).</figcaption>
+            <figcaption><b>Same mix.</b> Here each alert gets its own shares, which are then averaged over alerts in the class (dismissed vs escalated): card 52.1% vs 52.1%, bank transfer 41.2% vs 40.9%, cash 6.2% vs 6.5%, incoming 75.0% vs 74.4%. This differs from the shares of all transactions above (e.g. card 53.8%) because busy alerts weigh more in a pooled share.</figcaption>
           </figure>
           <figure>
             <div class="fig"><img src="assets/09_amount_distribution_by_class.png" alt="Two overlapping amount distributions for dismissed and escalated alerts" loading="lazy" width="1200" height="540"></div>
@@ -195,7 +195,6 @@
           <div class="axis">bar length: AUC from 0.50 (left edge) to 0.66 (right edge)</div>
         </div>
         <p><strong>Final model:</strong> one LightGBM gradient-boosted tree model with 8 leaves per tree, learning rate 0.01 and 508 trees. CV ROC-AUC <span class="num">0.6465 ± 0.0160</span> on the main split, <span class="num">0.6480</span> on average over 5 splits. The final notebook rebuilds the submission from the raw files, and a re-run produces a byte-identical file.</p>
-        <p class="src" style="font:400 11.5px/1.4 var(--mono);color:var(--ink-3)">Source: notes/experiments.md</p>
       </section>
 
       <section id="shap">
@@ -225,7 +224,7 @@
         <div class="grid-2">
           <figure>
             <div class="fig"><img src="assets/16_shap_waterfall_escalated.png" alt="Waterfall plot for an escalated alert; most contributions push the score up" loading="lazy" width="1638" height="988"></div>
-            <figcaption><b>Escalated example.</b> Starting from the average (−0.146 in log-odds), almost every top feature pushes the score up. The biggest push, +0.27, comes from the smallest outgoing card amount, followed by the spread of incoming and the median of outgoing bank transfers. Only one of the top ten pulls it down.</figcaption>
+            <figcaption><b>Escalated example.</b> Starting from the model's average output (−0.146 in log-odds; close to 0 rather than −1.57 because training weights escalated alerts ×4.82, which balances the classes), almost every top feature pushes the score up. The biggest push, +0.27, comes from the smallest outgoing card amount, followed by the spread of incoming and the median of outgoing bank transfers. Only one of the top ten pulls it down.</figcaption>
           </figure>
           <figure>
             <div class="fig"><img src="assets/17_shap_waterfall_dismissed.png" alt="Waterfall plot for a dismissed alert; most contributions push the score down" loading="lazy" width="1795" height="988"></div>
@@ -270,8 +269,8 @@
           <li>CatBoost — Prokhorenkova et al., 2018, <em>CatBoost: unbiased boosting with categorical features</em>, NeurIPS (tested, not in the final model).</li>
           <li>SHAP — Lundberg &amp; Lee, 2017, <em>A Unified Approach to Interpreting Model Predictions</em>, NeurIPS.</li>
           <li>American Express — Default Prediction, Kaggle competition (2022): aggregating customer history into per-customer features. <a href="https://www.kaggle.com/competitions/amex-default-prediction">kaggle.com</a></li>
-          <li>Feedzai — public material on machine learning for AML alert triage. <a href="https://feedzai.com">feedzai.com</a></li>
-          <li>Dataiku — public material on AML alert prioritisation use cases. <a href="https://www.dataiku.com">dataiku.com</a></li>
+          <li>Feedzai — <em>Anti-Money Laundering Alert Optimization Using Machine Learning with Graphs</em>. <a href="https://arxiv.org/abs/2112.07508">arXiv:2112.07508</a></li>
+          <li>Dataiku — AML Alerts Triage solution. <a href="https://knowledge.dataiku.com/latest/solutions/financial-services/solution-aml-alerts-triage.html">knowledge.dataiku.com</a></li>
           <li>FATF — money-laundering typology reports (structuring, pass-through, cash and cross-border activity). <a href="https://www.fatf-gafi.org">fatf-gafi.org</a></li>
           <li>AI tools: Claude Code (Anthropic) was used as a coding assistant for analysis, experiments and this site.</li>
         </ul>
