@@ -12,7 +12,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedKFold
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from features import ROOT, build  # noqa: E402
+from features import ROOT, build, global_thresholds  # noqa: E402
 from validate_submission import validate  # noqa: E402
 
 SEED = 42
@@ -45,26 +45,52 @@ def fit_predict(X, y, X_test, n_iter, params):
     return m, m.predict(X_test)
 
 
+def report(name, cols, r, ref=None):
+    line = f"{name:28s} n_feat={len(cols):3d}  CV AUC {r['mean']:.4f} ± {r['std']:.4f}  OOF {r['oof']:.4f}  iters {r['iters']}"
+    if ref is not None:
+        d = np.array(r["folds"]) - np.array(ref["folds"])
+        line += f"  Δ {d.mean():+.4f} (folds up {int((d > 0).sum())}/5)"
+    print(line, flush=True)
+
+
 if __name__ == "__main__":
-    s_tr, X_tr, groups = build("train")
-    s_te, X_te, _ = build("test")
+    thr = global_thresholds()
+    s_tr, X_tr, groups = build("train", thr)
+    s_te, X_te, _ = build("test", thr)
     y = s_tr.eskalatsiya.values
 
-    sets = {"baseline": groups["base"], "baseline+burst": groups["base"] + groups["burst"]}
-    results = {}
-    for name, cols in sets.items():
-        r = cv(X_tr[cols], y)
-        results[name] = r
-        print(f"{name:16s} n_feat={len(cols):3d}  CV AUC {r['mean']:.4f} ± {r['std']:.4f}  OOF {r['oof']:.4f}  "
-              f"folds {[round(a, 4) for a in r['folds']]}  iters {r['iters']}")
+    # Forward selection by group. CLAUDE.md rule: keep a group only if it adds > 0.002 CV AUC.
+    cols = groups["base"]
+    best = cv(X_tr[cols], y)
+    report("baseline", cols, best)
+    for g in ["A_shape", "B_rhythm", "C_change", "D_transit", "E_combo"]:
+        r = cv(X_tr[cols + groups[g]], y)
+        keep = r["mean"] - best["mean"] > 0.002
+        report(f"+ {g} ({'kept' if keep else 'dropped'})", cols + groups[g], r, best)
+        if keep:
+            cols, best = cols + groups[g], r
 
-    # CLAUDE.md rule: keep a feature group only if it adds > 0.002 CV AUC
-    gain = results["baseline+burst"]["mean"] - results["baseline"]["mean"]
-    best = "baseline+burst" if gain > 0.002 else "baseline"
-    cols, r = sets[best], results[best]
-    model, pred = fit_predict(X_tr[cols], y, X_te[cols], r["iters"], r["params"])
+    # Pass 2: groups dropped earlier may help on top of the new set; re-test until nothing is added.
+    remaining = [g for g in ["burst", "A_shape", "B_rhythm", "C_change", "D_transit", "E_combo"]
+                 if not set(groups[g]) <= set(cols)]
+    added = True
+    while added and remaining:
+        added = False
+        for g in list(remaining):
+            r = cv(X_tr[cols + groups[g]], y)
+            keep = r["mean"] - best["mean"] > 0.002
+            report(f"pass2 + {g} ({'kept' if keep else 'dropped'})", cols + groups[g], r, best)
+            if keep:
+                cols, best, added = cols + groups[g], r, True
+                remaining.remove(g)
+
+    all_cols = [c for g in ["base", "A_shape", "B_rhythm", "C_change", "D_transit", "E_combo"] for c in groups[g]]
+    r_all = cv(X_tr[all_cols], y)
+    report("all groups A–E (reference)", all_cols, r_all)
+
+    model, pred = fit_predict(X_tr[cols], y, X_te[cols], best["iters"], best["params"])
     imp = pd.Series(model.feature_importance("gain"), cols).sort_values(ascending=False)
-    print(f"\nbest: {best}; top-10 features by gain share:\n{(imp / imp.sum()).head(10).round(3).to_string()}")
+    print(f"\nfinal set: {len(cols)} features; top-20 by gain share:\n{(imp / imp.sum()).head(20).round(3).to_string()}")
 
     out = ROOT / "submissions" / f"team_{TEAM_ID}.csv"
     out.parent.mkdir(exist_ok=True)

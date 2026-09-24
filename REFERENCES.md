@@ -13,4 +13,5 @@
 - Claude Code (Anthropic, model Claude Opus 5.5) — used to write EDA code, charts, and notes.
 
 ## Ideas
+- AML typologies used for feature ideas (structuring, pass-through/transit, cash & international share) — general domain knowledge as described in FATF typology reports (fatf-gafi.org).
 - Chart colour palette: validated categorical palette from Claude Code's built-in `dataviz` skill.
