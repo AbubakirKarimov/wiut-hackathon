@@ -36,3 +36,10 @@ Source: `notebooks/eda.ipynb` (= `src/eda.py`); all numbers are in `notes/eda_st
 ## Do different alerts share a customer?
 - 0 exact duplicate transactions (time, direction, type, amount) across all 20,000 alerts.
 - Ignoring amount and the 23:50–00:00 window: no pair of alerts shares more than 3 timestamps; 184k colliding timestamps vs ~152k expected by pure chance. → No evidence of shared customers; plain stratified K-fold, no GroupKFold needed.
+
+## Class differences found during feature engineering (train, per-alert medians, dismissed vs escalated)
+- Mean outgoing bank-transfer amount: 0.299 vs 0.122 (single-feature AUC 0.427, i.e. lower → escalated).
+- Mean incoming bank-transfer amount: 0.125 vs 0.002 (AUC 0.440).
+- Mean outgoing international amount: 2.119 vs 1.897 (AUC 0.447).
+- Number of outgoing cash transactions: 6 vs 7 (AUC 0.541).
+- Skew of outgoing amounts: 0.183 vs 0.132 (AUC 0.449).

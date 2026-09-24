@@ -1,0 +1,65 @@
+{
+  "mean_abs_shap_top15": {
+    "Median of outgoing bank transfer amounts": 0.0652,
+    "Min of incoming bank transfer amounts": 0.0638,
+    "Mean amount of outgoing bank transfer tx": 0.0587,
+    "Max of incoming cash amounts": 0.055,
+    "Min of outgoing card amounts": 0.0536,
+    "90th pct of outgoing bank transfer amounts": 0.0473,
+    "Mean amount of incoming cash tx": 0.0468,
+    "Spread (std) of outgoing bank transfer amounts": 0.0423,
+    "Max of outgoing card amounts": 0.0416,
+    "Spread (std) of incoming bank transfer amounts": 0.0413,
+    "Smallest amount (all tx)": 0.0408,
+    "Amount skew (outgoing tx)": 0.035,
+    "90th pct of incoming bank transfer amounts": 0.0339,
+    "Spread (std) of outgoing card amounts": 0.0321,
+    "90th pct of incoming cash amounts": 0.0296
+  },
+  "dependence": {
+    "Median of outgoing bank transfer amounts": {
+      "corr_value_vs_shap": -0.902,
+      "mean_shap_by_value_quintile": [
+        0.099,
+        0.071,
+        0.006,
+        -0.045,
+        -0.095
+      ],
+      "share_missing": 0.044
+    },
+    "Min of incoming bank transfer amounts": {
+      "corr_value_vs_shap": 0.27,
+      "mean_shap_by_value_quintile": [
+        -0.123,
+        0.059,
+        0.027,
+        0.026,
+        0.026
+      ],
+      "share_missing": 0.015
+    },
+    "Mean amount of outgoing bank transfer tx": {
+      "corr_value_vs_shap": -0.894,
+      "mean_shap_by_value_quintile": [
+        0.079,
+        0.064,
+        0.017,
+        -0.053,
+        -0.082
+      ],
+      "share_missing": 0.013
+    }
+  },
+  "waterfall_score_rank": {
+    "escalated_example": "90th percentile of escalated alerts' scores",
+    "dismissed_example": "10th percentile of dismissed alerts' scores"
+  },
+  "base_value_log_odds": -0.146,
+  "group_share_of_mean_abs_shap": {
+    "base": 0.061,
+    "A_shape": 0.153,
+    "E_combo": 0.184,
+    "F_combo_shape": 0.603
+  }
+}

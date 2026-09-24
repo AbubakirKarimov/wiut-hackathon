@@ -184,7 +184,7 @@ def transit_features(t):
 def combo_features(t):
     combo = t.tranzaksiya_turi + "_" + t.kirim_chiqim
     cnt = pd.crosstab(t.signal_id, combo)
-    f = cnt.add_prefix("cmb_n_").join(cnt.div(cnt.sum(1), axis=0).add_prefix("cmb_share_"))
+    f = cnt.add_prefix("cmb_n_").join(cnt.div(cnt.sum(axis=1), axis=0).add_prefix("cmb_share_"))
     mean = t.pivot_table(index="signal_id", columns=combo, values="miqdor_indeksi", aggfunc="mean")
     return f.join(mean.add_prefix("cmb_amt_mean_"))
 

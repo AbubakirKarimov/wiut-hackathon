@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AML Alert Triage — WIUT Hackathon 2026</title>
+<meta name="description" content="Which bank monitoring alerts deserve an investigation? Exploratory analysis and a LightGBM model for anti-money-laundering alert triage (team 348471A6).">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%2316150f'/%3E%3Cpath d='M8 22 L14 10 L18 18 L24 8' stroke='%23eb6834' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="mast">
+    <span><b>Case file</b> · AML alert triage</span>
+    <span>WIUT Hackathon 2026 · Team 348471A6</span>
+  </header>
+
+  <div class="hero">
+    <div>
+      <p class="kicker reveal d1">Fintech · AI in Fintech</p>
+      <h1 class="reveal d2">Which alerts deserve an <em>investigation?</em></h1>
+      <p class="lede reveal d3">A bank's monitoring system raises thousands of automated alerts. A specialist dismisses most of them and escalates a few. We used each customer's transaction history to rank alerts by their chance of escalation, so the likely ones get looked at first.</p>
+    </div>
+    <div class="ticket reveal d4" aria-label="Illustration of an alert and the model output">
+      <span class="stamp">Triage</span>
+      <div class="row"><span class="k">Alert ID</span><span class="redact" style="width:9ch"></span></div>
+      <div class="row"><span class="k">Alert date</span><span class="redact" style="width:10ch"></span></div>
+      <div class="row"><span class="k">History</span><span>≈ 6 months of transactions</span></div>
+      <div class="row"><span class="k">Model output</span><span>P(escalation) ∈ [0, 1]</span></div>
+      <div class="bar" aria-hidden="true"><span></span></div>
+      <div class="note">Illustration only — no real alert is shown on this site.</div>
+    </div>
+  </div>
+
+  <div class="stats" role="list">
+    <div class="stat" role="listitem"><div class="v num">14,000</div><div class="l">training alerts</div></div>
+    <div class="stat" role="listitem"><div class="v num">17.2<small>%</small></div><div class="l">escalated</div></div>
+    <div class="stat" role="listitem"><div class="v num">7.0<small>M</small></div><div class="l">training transactions</div></div>
+    <div class="stat" role="listitem"><div class="v num">0.648</div><div class="l">CV ROC-AUC, final model</div></div>
+  </div>
+
+  <div class="layout">
+    <nav class="toc" aria-label="Contents">
+      <div class="label">Contents</div>
+      <ol>
+        <li><a href="#approach">Approach</a></li>
+        <li><a href="#data">Dataset</a></li>
+        <li><a href="#target">Target &amp; time</a></li>
+        <li><a href="#burst">The pre-alert burst</a></li>
+        <li><a href="#patterns">Behavioural patterns</a></li>
+        <li><a href="#features">Features from EDA</a></li>
+        <li><a href="#shap">What the model learned</a></li>
+        <li><a href="#failed">What didn't work</a></li>
+        <li><a href="#conclusion">Conclusion</a></li>
+        <li><a href="#refs">References</a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <section id="approach">
+        <div class="sec-no">Approach</div>
+        <h2>Rank the alerts, not just label them</h2>
+        <p>Each alert is either <span class="tag dis">dismissed</span> or <span class="tag esc">escalated</span>. For every test alert we predict the <strong>probability of escalation</strong>. The score is ROC-AUC: it only checks the <em>ordering</em>. It asks how often a random escalated alert is ranked above a random dismissed one. 0.5 is a coin flip, 1.0 is perfect.</p>
+        <ol>
+          <li><strong>Explore</strong> the data and answer basic questions with numbers: size, balance, time, leakage.</li>
+          <li><strong>Summarise</strong> each alert's transactions (hundreds per alert) into one row of features.</li>
+          <li><strong>Validate honestly</strong>: stratified 5-fold cross-validation, repeated on 5 different random splits. A feature group is kept only if it adds more than 0.002 AUC.</li>
+          <li><strong>Explain</strong> the final model with SHAP and check that it makes sense in anti-money-laundering (AML) terms.</li>
+        </ol>
+        <div class="callout blue"><p><strong>Confidentiality.</strong> The data is under NDA. This site shows only charts and aggregated statistics — no raw rows, no alert IDs, no data files.</p></div>
+      </section>
+
+      <section id="data">
+        <div class="sec-no">Dataset</div>
+        <h2>Twenty thousand alerts, ten million transactions</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th></th><th>Train</th><th>Test</th></tr></thead>
+            <tbody>
+              <tr><td>Alerts</td><td class="n">14,000</td><td class="n">6,000</td></tr>
+              <tr><td>Transactions</td><td class="n">6,987,663</td><td class="n">3,027,575</td></tr>
+              <tr><td>Alert dates</td><td class="n">2025-01-01 … 2026-12-31</td><td class="n">2025-01-01 … 2026-12-31</td></tr>
+              <tr><td>Label</td><td>escalated (1) / dismissed (0)</td><td>— (to predict)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul>
+          <li>Each transaction has a timestamp, a direction (incoming <span class="num">75.7%</span> / outgoing), a type (card <span class="num">53.8%</span>, bank transfer <span class="num">39.4%</span>, cash <span class="num">6.3%</span>, international <span class="num">0.5%</span>) and a standardised amount index.</li>
+          <li><strong>0 missing values.</strong> Every alert has at least one transaction. No alert appears in both train and test.</li>
+          <li>Transactions per alert: min <span class="num">1</span>, median <span class="num">461</span>, max <span class="num">2,279</span>. History length: median <span class="num">179</span> days, so almost every alert comes with a full ~6-month window. Only <span class="num">157</span> alerts have less than 30 days.</li>
+          <li><strong>Leakage check:</strong> <span class="num">0</span> transactions after the alert day. <span class="num">840</span> transactions fell later on the alert day, in just <span class="num">21</span> train alerts. We dropped them because their timing relative to the alert is ambiguous.</li>
+          <li><strong>Shared customers?</strong> Across all 20,000 alerts there are <span class="num">0</span> exact duplicate transactions, and no pair of alerts shares more than 3 timestamps outside the pre-alert burst. No sign of one customer behind several alerts, so plain stratified folds are safe.</li>
+        </ul>
+      </section>
+
+      <section id="target">
+        <div class="sec-no">Target &amp; time</div>
+        <h2>One in six alerts is escalated, and that rate barely moves</h2>
+        <div class="grid-2">
+          <figure>
+            <div class="fig"><img src="assets/01_class_balance.png" alt="Horizontal bars: 11,595 dismissed and 2,405 escalated training alerts" loading="lazy" width="900" height="480"></div>
+            <figcaption><b>Imbalanced classes.</b> 2,405 of 14,000 alerts (17.2%) were escalated. A model that always says "dismiss" would be right 83% of the time and useless, which is why the metric is ROC-AUC, not accuracy.</figcaption>
+          </figure>
+          <figure>
+            <div class="fig"><img src="assets/03_escalation_rate_by_quarter.png" alt="Line chart of escalation rate by quarter, between 15.8% and 18.9%" loading="lazy" width="1200" height="510"></div>
+            <figcaption><b>No drift over time.</b> The quarterly escalation rate stays between 15.8% and 18.9%.</figcaption>
+          </figure>
+        </div>
+        <figure>
+          <div class="fig"><img src="assets/02_train_test_time_coverage.png" alt="Monthly share of alerts, train and test lines overlapping across 2025–2026" loading="lazy" width="1200" height="540"></div>
+          <figcaption><b>Test is not "the future".</b> Train and test alerts cover the same two years with the same monthly shape. So random (stratified) cross-validation is a fair estimate of the test score, and a time-based split is not needed.<span class="src">Source: notes/eda_findings.md</span></figcaption>
+        </figure>
+      </section>
+
+      <section id="burst">
+        <div class="sec-no">The pre-alert burst</div>
+        <h2>Almost every alert ends with a three-minute flurry</h2>
+        <p>The most striking structure in the data: <strong>551,899 transactions (7.9% of all)</strong> sit in the last 15 minutes before midnight of the alert date. <strong>13,848 of 14,000 alerts (98.9%)</strong> have this burst, with a median of <span class="num">31</span> transactions. It is extremely tight: 548,712 transactions fall within 5 minutes of midnight, only 44 in the 5–10 minutes before that, and a typical burst lasts <span class="num">172</span> seconds. It looks like the event that triggered the alert.</p>
+        <div class="grid-2">
+          <figure>
+            <div class="fig"><img src="assets/07_last_minutes_burst.png" alt="Histogram on log scale of transactions in the 72 hours before the alert, with a huge spike at zero" loading="lazy" width="1200" height="540"></div>
+            <figcaption><b>A spike at the end.</b> Log-scale count of transactions in the last 72 hours. The final 15-minute bin towers over everything else.</figcaption>
+          </figure>
+          <figure>
+            <div class="fig"><img src="assets/08_hour_of_day.png" alt="Bar chart of transactions by hour; hour 23 is about three times higher than the rest" loading="lazy" width="1200" height="510"></div>
+            <figcaption><b>The same burst, seen by hour.</b> Hour 23 holds 11.7% of all transactions, versus about 3.8% for every other hour.</figcaption>
+          </figure>
+        </div>
+        <div class="callout"><p><strong>But the burst does not separate the classes.</strong> Its size alone has AUC 0.513, and a whole group of 22 burst features added only +0.0003. Almost every alert has one, escalated or not. See <a href="#failed">what didn't work</a>.</p></div>
+      </section>
+
+      <section id="patterns">
+        <div class="sec-no">Behavioural patterns</div>
+        <h2>Escalated and dismissed alerts look almost the same, on average</h2>
+        <p>The EDA's main lesson was humbling: simple averages barely tell the classes apart. Every single simple feature had an AUC between <span class="num">0.502</span> and <span class="num">0.548</span>.</p>
+        <figure>
+          <div class="fig"><img src="assets/11_single_feature_auc.png" alt="Bar chart of single-feature ROC-AUC values, all between 0.50 and 0.55" loading="lazy" width="1200" height="690"></div>
+          <figcaption><b>No silver bullet.</b> The best simple feature (largest amount) reaches AUC 0.548. The signal is weak and spread across many features, so gains had to come from combining them.</figcaption>
+        </figure>
+        <div class="grid-2">
+          <figure>
+            <div class="fig"><img src="assets/10_type_direction_mix_by_class.png" alt="Five small bar pairs comparing transaction type and direction shares between classes; nearly identical" loading="lazy" width="1650" height="510"></div>
+            <figcaption><b>Same mix.</b> Card 52.1% vs 52.1%, bank transfer 41.2% vs 40.9%, cash 6.2% vs 6.5%, incoming 75.0% vs 74.4% (dismissed vs escalated).</figcaption>
+          </figure>
+          <figure>
+            <div class="fig"><img src="assets/09_amount_distribution_by_class.png" alt="Two overlapping amount distributions for dismissed and escalated alerts" loading="lazy" width="1200" height="540"></div>
+            <figcaption><b>Amounts overlap too.</b> Mean amount index −0.182 (escalated) vs −0.123 (dismissed): a small shift, not a separation.</figcaption>
+          </figure>
+          <figure>
+            <div class="fig"><img src="assets/05_escalation_by_activity_quintile.png" alt="Escalation rate by activity quintile rising from 15.5% to 19.0%" loading="lazy" width="1050" height="510"></div>
+            <figcaption><b>Busier customers are escalated a bit more often:</b> 15.5% in the least active fifth vs 19.0% in the most active.</figcaption>
+          </figure>
+          <figure>
+            <div class="fig"><img src="assets/06_activity_profile_days_before.png" alt="Average daily transactions over 180 days before the alert, escalated line slightly above dismissed" loading="lazy" width="1200" height="540"></div>
+            <figcaption><b>Consistently a little more active</b> over the whole six months before the alert, not only at the end.</figcaption>
+          </figure>
+        </div>
+        <h3>Where the difference really hides</h3>
+        <p>Amounts only mean something <em>within</em> a transaction type: an international transfer averages an index of about 2, an incoming card payment about −0.5. When we compared amounts type by type, a clear pattern appeared. Per-alert medians, dismissed vs escalated:</p>
+        <ul>
+          <li>mean <strong>outgoing bank transfer</strong>: <span class="num">0.299</span> vs <span class="num">0.122</span>;</li>
+          <li>mean <strong>incoming bank transfer</strong>: <span class="num">0.125</span> vs <span class="num">0.002</span>;</li>
+          <li>number of <strong>outgoing cash</strong> transactions: <span class="num">6</span> vs <span class="num">7</span>.</li>
+        </ul>
+        <p><strong>Escalated customers move money in smaller pieces.</strong> In AML this is the classic <em>structuring</em> typology: splitting a large sum into many small transactions to stay under reporting thresholds.</p>
+      </section>
+
+      <section id="features">
+        <div class="sec-no">Features motivated by EDA</div>
+        <h2>From 11 features to 110, one tested group at a time</h2>
+        <p>Every group came from an EDA observation or an AML typology and was added only if it improved cross-validated AUC by more than 0.002. The final set is 110 features in four groups:</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Group</th><th>What it measures</th><th>Why (EDA)</th><th>Effect</th></tr></thead>
+            <tbody>
+              <tr><td>Base <span class="num">(11)</span></td><td>count, sum / mean / max / min / std of amounts, type and direction shares</td><td>starting point</td><td class="n">0.5979</td></tr>
+              <tr><td>A · amount shape <span class="num">(33)</span></td><td>quantiles, spread, skew, kurtosis; shares of very small / large amounts</td><td>averages overlap, so look at the shape</td><td class="n">+0.0108</td></tr>
+              <tr><td>E · type × direction <span class="num">(24)</span></td><td>count, share and mean amount for each of the 8 combinations (e.g. incoming cash)</td><td>amounts only comparable within a type</td><td class="n">+0.0232</td></tr>
+              <tr><td>F · shape within type × direction <span class="num">(42)</span></td><td>min, max, median, 10th/90th percentile, spread, skew for 6 combinations</td><td>structuring = many similar small amounts</td><td class="n">+0.0096</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>International transactions were skipped in group F: fewer than half of the alerts have 5 or more of them, so their statistics would be noise.</p>
+        <h3>Cross-validated ROC-AUC, mean over 5 random splits</h3>
+        <div class="ladder" role="img" aria-label="Bar chart of CV ROC-AUC by step: baseline 0.6008, plus A and E 0.6349, plus F 0.6445, tuned 0.6480">
+          <div class="rung"><div class="name">Baseline <small>11 features</small></div><div class="track"><span style="width:63%">0.6008</span></div></div>
+          <div class="rung"><div class="name">+ A + E <small>68 features · +0.0342, better on 5/5 splits</small></div><div class="track"><span style="width:84.3%;animation-delay:.1s">0.6349</span></div></div>
+          <div class="rung"><div class="name">+ F <small>110 features · +0.0096, 5/5</small></div><div class="track"><span style="width:90.3%;animation-delay:.2s">0.6445</span></div></div>
+          <div class="rung"><div class="name">Tuned LightGBM <small>final · +0.0035, 5/5</small></div><div class="track"><span class="final" style="width:92.5%;animation-delay:.3s">0.6480</span></div></div>
+          <div class="axis">bar length: AUC from 0.50 (left edge) to 0.66 (right edge)</div>
+        </div>
+        <p><strong>Final model:</strong> one LightGBM gradient-boosted tree model with 8 leaves per tree, learning rate 0.01 and 508 trees. CV ROC-AUC <span class="num">0.6465 ± 0.0160</span> on the main split, <span class="num">0.6480</span> on average over 5 splits. The final notebook rebuilds the submission from the raw files, and a re-run produces a byte-identical file.</p>
+        <p class="src" style="font:400 11.5px/1.4 var(--mono);color:var(--ink-3)">Source: notes/experiments.md</p>
+      </section>
+
+      <section id="shap">
+        <div class="sec-no">What the model learned</div>
+        <h2>It watches how customers move money through bank transfers</h2>
+        <p>SHAP splits each prediction into contributions from individual features. Positive values push an alert towards <span class="tag esc">escalated</span>, negative towards <span class="tag dis">dismissed</span>. By group, <strong>60.3%</strong> of the model's attention goes to group F (amount shape within type × direction), 18.4% to E, 15.3% to A and 6.1% to the base features. Seven of the top-15 features describe bank transfers.</p>
+        <figure>
+          <div class="fig"><img src="assets/12_shap_summary.png" alt="SHAP beeswarm plot of the top 15 features" loading="lazy" width="1723" height="945"></div>
+          <figcaption><b>How to read it:</b> each dot is one training alert; colour is the feature value (red = high, blue = low). For the <b>median outgoing bank transfer</b> (top row), red dots sit on the left: <b>small transfers push towards escalation</b>. For <b>incoming cash amounts</b> it is the opposite, and larger cash deposits push towards escalation.</figcaption>
+        </figure>
+        <div class="grid-2">
+          <figure>
+            <div class="fig"><img src="assets/13_shap_dependence_1.png" alt="Dependence plot: SHAP falls steadily as median outgoing bank transfer grows" loading="lazy" width="960" height="594"></div>
+            <figcaption><b>#1 · Median outgoing bank transfer.</b> A clean downhill curve: the smaller the typical transfer, the higher the risk. Mean SHAP by value fifth, from small to large: +0.099, +0.071, +0.006, −0.045, −0.095. This is the structuring signal.</figcaption>
+          </figure>
+          <figure>
+            <div class="fig"><img src="assets/15_shap_dependence_3.png" alt="Dependence plot: SHAP falls as mean outgoing bank transfer grows" loading="lazy" width="960" height="594"></div>
+            <figcaption><b>#3 · Mean outgoing bank transfer.</b> The same story from the mean: correlation between value and SHAP −0.89.</figcaption>
+          </figure>
+        </div>
+        <figure>
+          <div class="fig"><img src="assets/14_shap_dependence_2.png" alt="Dependence plot: a sharp step at the very bottom of the amount scale" loading="lazy" width="945" height="594"></div>
+          <figcaption><b>#2 · Smallest incoming bank transfer: a threshold, not a trend.</b> The effect sits in a narrow band at the bottom of the amount scale. Alerts whose smallest incoming transfer is at or below −2.89 are escalated 13.7% of the time (2,677 alerts). Just above, in (−2.89, −2.85], the rate is 27.9% (953 alerts). We cannot explain this in AML terms; it may reflect how the amount index was built. We report it rather than hide it.</figcaption>
+        </figure>
+        <h3>Two individual decisions</h3>
+        <p>Two typical cases: an escalated alert ranked at the 90th percentile of escalated scores, and a dismissed alert at the 10th percentile of dismissed scores. Only the contributions are shown, not the customers' actual values.</p>
+        <div class="grid-2">
+          <figure>
+            <div class="fig"><img src="assets/16_shap_waterfall_escalated.png" alt="Waterfall plot for an escalated alert; most contributions push the score up" loading="lazy" width="1638" height="988"></div>
+            <figcaption><b>Escalated example.</b> Starting from the average (−0.146 in log-odds), almost every top feature pushes the score up. The biggest push, +0.27, comes from the smallest outgoing card amount, followed by the spread of incoming and the median of outgoing bank transfers. Only one of the top ten pulls it down.</figcaption>
+          </figure>
+          <figure>
+            <div class="fig"><img src="assets/17_shap_waterfall_dismissed.png" alt="Waterfall plot for a dismissed alert; most contributions push the score down" loading="lazy" width="1795" height="988"></div>
+            <figcaption><b>Dismissed example.</b> The incoming bank-transfer features (mean −0.19, 90th percentile −0.10, spread −0.06) pull the score down. Incoming cash pushes the other way (+0.13), but not enough to change the picture.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="failed">
+        <div class="sec-no">What didn't work</div>
+        <h2>Good AML ideas that this data did not reward</h2>
+        <p>Each idea below was built, tested on the same folds and dropped because it did not beat the 0.002 bar. We think reporting them matters as much as the wins.</p>
+        <div class="cards">
+          <div class="card"><h4>The pre-alert burst <span class="num">+0.0003</span></h4><p>22 features on the burst's size, mix and amounts vs history. Re-tested on top of the stronger feature set: −0.0014. Nearly every alert has a burst, so it does not discriminate.</p></div>
+          <div class="card"><h4>Transit / pass-through <span class="num">−0.0004</span></h4><p>Money in, then out within 1 h or 24 h; share of money passed through; running balance. A textbook laundering pattern, but no gain here (−0.0001 in the second pass).</p></div>
+          <div class="card"><h4>Rhythm &amp; time of day <span class="num">−0.0002</span></h4><p>Gaps between transactions, active days, peaks per day and hour, night and weekend shares, 24 hourly shares. −0.0022 in the second pass.</p></div>
+          <div class="card"><h4>Behaviour change <span class="num">−0.0016</span></h4><p>Last 7 / 30 days vs the whole history, second half vs first half, monthly trend. −0.0020 in the second pass.</p></div>
+          <div class="card"><h4>CatBoost <span class="num">−0.0059</span></h4><p>A second gradient-boosting library on the same 110 features: 0.6422, worse than LightGBM on 5/5 splits.</p></div>
+          <div class="card"><h4>Blending &amp; seed averaging <span class="num">−0.0011 … −0.0033</span></h4><p>Rank-averaging LightGBM with CatBoost was worse at every weight (0.3 / 0.5 / 0.7). Averaging 5 LightGBM seeds gave −0.0004.</p></div>
+        </div>
+        <div class="callout"><p><strong>A lesson in honest validation.</strong> Our first baseline stopped training on each fold's own validation data and ended after 1–2 trees. Its score looked fine (0.5804), but the out-of-fold AUC was only 0.5617. We switched to one shared number of trees for all folds. From then on the mean fold score and the out-of-fold score agreed (e.g. 0.6465 vs 0.6460).</p></div>
+        <p>Putting every group in together (141 features) scored 0.6273, below the 68-feature set at that stage (0.6318). More features also meant more noise.</p>
+      </section>
+
+      <section id="conclusion">
+        <div class="sec-no">Conclusion</div>
+        <h2>Weak signal, honest gains, a pattern that makes sense</h2>
+        <ul>
+          <li>The task is hard: no simple statistic gets beyond AUC 0.548. The final model reaches <strong>0.648</strong> (from a 0.601 baseline, both averaged over 5 splits). The ranking is better than chance, but far from perfect.</li>
+          <li>The gain came from <strong>comparing amounts within each transaction type and direction</strong>, not from more data or bigger models.</li>
+          <li>What the model learned matches a known AML typology: escalated customers make <strong>smaller, more fragmented bank transfers</strong> and larger cash deposits, consistent with <em>structuring</em>.</li>
+          <li>Every kept change was confirmed on 5 random splits. Every dropped idea is listed above. The whole pipeline is reproducible from the raw files with a fixed seed.</li>
+        </ul>
+      </section>
+
+      <section id="refs">
+        <div class="sec-no">References</div>
+        <h2>Credits</h2>
+        <ul class="refs">
+          <li>Libraries: pandas, NumPy, PyArrow, SciPy, scikit-learn, Matplotlib, Jupyter.</li>
+          <li>LightGBM — Ke et al., 2017, <em>LightGBM: A Highly Efficient Gradient Boosting Decision Tree</em>, NeurIPS.</li>
+          <li>CatBoost — Prokhorenkova et al., 2018, <em>CatBoost: unbiased boosting with categorical features</em>, NeurIPS (tested, not in the final model).</li>
+          <li>SHAP — Lundberg &amp; Lee, 2017, <em>A Unified Approach to Interpreting Model Predictions</em>, NeurIPS.</li>
+          <li>American Express — Default Prediction, Kaggle competition (2022): aggregating customer history into per-customer features. <a href="https://www.kaggle.com/competitions/amex-default-prediction">kaggle.com</a></li>
+          <li>Feedzai — public material on machine learning for AML alert triage. <a href="https://feedzai.com">feedzai.com</a></li>
+          <li>Dataiku — public material on AML alert prioritisation use cases. <a href="https://www.dataiku.com">dataiku.com</a></li>
+          <li>FATF — money-laundering typology reports (structuring, pass-through, cash and cross-border activity). <a href="https://www.fatf-gafi.org">fatf-gafi.org</a></li>
+          <li>AI tools: Claude Code (Anthropic) was used as a coding assistant for analysis, experiments and this site.</li>
+        </ul>
+      </section>
+
+    </main>
+  </div>
+
+  <footer>
+    <p>WIUT Hackathon 2026 · Elimination task · Team 348471A6. Charts and aggregate statistics only; the underlying data is confidential and not published.</p>
+  </footer>
+</div>
+</body>
+</html>
